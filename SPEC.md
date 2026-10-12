@@ -26,7 +26,7 @@ Dinner Decider helps an individual or group overcome decision fatigue by choosin
 - A responsive web application for modern desktop and mobile browsers.
 - No account or sign-in is required.
 - Without a family invitation link, restaurant data is stored in the browser on the device where it was entered.
-- A user may create a private family invitation link backed by a configured Supabase project. Anyone with that link can use the same shared list from another device.
+- A user may create a private family invitation link backed by a configured hosted SQLite API. Anyone with that link can use the same shared list from another device.
 - A restaurant needs only a name; additional details are optional.
 - The app selects uniformly at random from eligible restaurants.
 - Users can add, edit, remove, and temporarily exclude restaurants from a draw.
@@ -123,7 +123,7 @@ Dinner Decider helps an individual or group overcome decision fatigue by choosin
 
 - Save the list and exclusion state in browser storage on the current device.
 - Restore saved data when the app is reopened in the same browser profile.
-- When opened from a private family invitation link, load and save the shared list in the configured remote database instead of the local list.
+- When opened from a private family invitation link, load and save the shared list in the configured SQLite-backed API instead of the local list.
 - Allow the owner to create a shared family list from the current local list and copy an invitation link.
 - Keep the invitation token in the URL fragment and send it to the data service in a request header; never put it in a server request URL.
 - Check for remote list updates while a shared list is open and apply newer saved revisions.
@@ -216,9 +216,9 @@ The persisted list should include a schema/version marker so future releases can
 ## 10. Privacy and security
 
 - The app does not require personally identifying information or an account.
-- A local list stays in browser storage on the user’s device. A family list is sent to the user's configured Supabase project.
+- A local list stays in browser storage on the user’s device. A family list is sent to the configured API and stored in its SQLite database.
 - Anyone with a family invitation link can read and modify that shared list; the UI and setup instructions must say so.
-- Never include a Supabase service-role key in the client. Restrict anonymous access to a list by its secret link token using row-level security.
+- Store only a hash of the invitation secret in the database. Require the secret for list reads and writes, and never expose it in API query strings.
 - Keep the invitation token in the URL fragment, which is not sent as part of the page request, and do not expose it in API query strings.
 - Explain that clearing browser/site data can remove a local list and that local lists do not synchronize between devices.
 - Render restaurant names and notes as text, not executable markup.

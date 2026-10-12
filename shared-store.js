@@ -1,91 +1,75 @@
 (() => {
   const config = window.DINNER_DECIDER_CONFIG || {};
-  const supabaseUrl = typeof config.supabaseUrl === "string"
-    ? config.supabaseUrl.replace(/\/+$/, "")
-    : "";
-  const anonKey = typeof config.supabaseAnonKey === "string"
-    ? config.supabaseAnonKey.trim()
+  const apiBaseUrl = typeof config.apiBaseUrl === "string"
+    ? config.apiBaseUrl.replace(/\/+$/, "")
     : "";
 
   function isConfigured() {
-    return supabaseUrl.startsWith("https://") && anonKey.length > 0;
+    return apiBaseUrl.startsWith("https://") || apiBaseUrl.startsWith("http://localhost:");
   }
 
-  async function request(path, { token, method = "GET", body, prefer } = {}) {
+  async function request(path, { token, method = "GET", body } = {}) {
     if (!isConfigured()) {
       throw new Error("Shared lists are not configured. Follow SETUP.md to connect the family list.");
     }
 
-    const headers = {
-      apikey: anonKey,
-      Authorization: `Bearer ${anonKey}`,
-      "Content-Type": "application/json",
-    };
-    if (token) headers["x-family-key"] = token;
-    if (prefer) headers.Prefer = prefer;
+    const headers = { "Content-Type": "application/json" };
+    if (token) headers["X-Family-Key"] = token;
 
     let response;
     try {
-      response = await fetch(`${supabaseUrl}/rest/v1/${path}`, {
+      response = await fetch(`${apiBaseUrl}${path}`, {
         method,
         headers,
         body: body === undefined ? undefined : JSON.stringify(body),
         cache: "no-store",
+        credentials: "omit",
+        referrerPolicy: "no-referrer",
       });
     } catch {
       throw new Error("Could not reach shared storage. Check your internet connection and try again.");
     }
 
-    if (!response.ok) {
-      let detail = "";
-      try {
-        const error = await response.json();
-        detail = typeof error.message === "string" ? error.message : "";
-      } catch {
-        detail = "";
-      }
-      throw new Error(detail || `Shared storage returned an error (${response.status}).`);
+    let result = null;
+    try {
+      result = await response.json();
+    } catch {
+      if (response.ok) throw new Error("Shared storage returned an invalid response.");
     }
 
-    if (response.status === 204) return null;
-    const text = await response.text();
-    return text ? JSON.parse(text) : null;
+    if (!response.ok && response.status !== 409) {
+      throw new Error(result && typeof result.error === "string"
+        ? result.error
+        : `Shared storage returned an error (${response.status}).`);
+    }
+    return { status: response.status, data: result };
   }
 
-  async function createList(token, restaurants) {
-    await request("family_lists", {
-      token,
+  async function createList(restaurants) {
+    const response = await request("/api/lists", {
       method: "POST",
-      body: { share_id: token, restaurants, revision: 0 },
-      prefer: "return=minimal",
+      body: { restaurants },
     });
-    return { revision: 0 };
+    const created = response.data;
+    if (!created || typeof created.id !== "string" || typeof created.token !== "string"
+      || !Array.isArray(created.restaurants) || !Number.isSafeInteger(created.revision)) {
+      throw new Error("Shared storage returned invalid family-list details.");
+    }
+    return created;
   }
 
-  async function loadList(token) {
-    const query = new URLSearchParams({
-      select: "restaurants,revision",
-      share_id: `eq.${token}`,
-      limit: "1",
-    });
-    const rows = await request(`family_lists?${query}`, { token });
-    return rows[0] || null;
+  async function loadList(id, token) {
+    const response = await request(`/api/lists/${encodeURIComponent(id)}`, { token });
+    return response.data;
   }
 
-  async function saveList(token, restaurants, expectedRevision) {
-    const result = await request("rpc/save_family_list", {
+  async function saveList(id, token, restaurants, expectedRevision) {
+    const response = await request(`/api/lists/${encodeURIComponent(id)}`, {
       token,
-      method: "POST",
-      body: {
-        p_share_id: token,
-        p_restaurants: restaurants,
-        p_expected_revision: expectedRevision,
-      },
+      method: "PUT",
+      body: { restaurants, expectedRevision },
     });
-    const row = Array.isArray(result) ? result[0] : result;
-    if (row && row.saved === true && Number.isSafeInteger(row.revision) && row.revision >= 0) return row;
-    if (row && row.saved === false) return row;
-    throw new Error("Shared storage returned an invalid save confirmation.");
+    return response.data;
   }
 
   function createShareId() {
@@ -95,13 +79,14 @@
     return window.crypto.randomUUID();
   }
 
-  function makeShareUrl(token) {
-    return `${window.location.origin}${window.location.pathname}#family=${encodeURIComponent(token)}`;
+  function makeShareUrl(id, token) {
+    const credential = `${encodeURIComponent(id)}.${encodeURIComponent(token)}`;
+    return `${window.location.origin}${window.location.pathname}#family=${credential}`;
   }
 
-  function readShareId() {
-    const match = /^#family=([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i.exec(window.location.hash);
-    return match ? match[1] : null;
+  function readShareCredential() {
+    const match = /^#family=([0-9a-f-]{36})\.([A-Za-z0-9_-]{40,60})$/i.exec(window.location.hash);
+    return match ? { id: match[1], token: match[2] } : null;
   }
 
   window.DinnerDeciderSharedStore = Object.freeze({
@@ -111,6 +96,6 @@
     saveList,
     createShareId,
     makeShareUrl,
-    readShareId,
+    readShareCredential,
   });
 })();

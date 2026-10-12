@@ -40,11 +40,14 @@
   let restaurants = [];
   let editingId = null;
   let lastPickId = null;
-  let shareId = sharedStore.readShareId();
-  let sharedMode = Boolean(shareId);
+  const familyCredential = sharedStore.readShareCredential();
+  let shareId = familyCredential ? familyCredential.id : null;
+  let shareToken = familyCredential ? familyCredential.token : null;
+  let sharedMode = Boolean(familyCredential);
   let sharedReady = false;
   let sharedRevision = 0;
   let sharedSaveQueue = Promise.resolve();
+  let sharedSaveEpoch = 0;
   let localConflict = null;
   let pendingLocalSave = null;
   let sharedPendingWrites = 0;
@@ -140,17 +143,19 @@
   }
 
   function persistSharedRestaurants(nextRestaurants) {
+    const operationEpoch = sharedSaveEpoch;
     pendingLocalSave = nextRestaurants;
     sharedPendingWrites += 1;
     render();
     sharedSaveQueue = sharedSaveQueue.then(async () => {
-      if (localConflict || !sharedReady) return;
-      const result = await sharedStore.saveList(shareId, nextRestaurants, sharedRevision);
+      if (operationEpoch !== sharedSaveEpoch || localConflict || !sharedReady) return;
+      const result = await sharedStore.saveList(shareId, shareToken, nextRestaurants, sharedRevision);
       if (!result.saved) {
-        const latest = await sharedStore.loadList(shareId);
+        const latest = result.latest || await sharedStore.loadList(shareId, shareToken);
         if (!isFamilyList(latest)) {
           throw new Error("The family list could not be reloaded after a simultaneous update.");
         }
+        sharedSaveEpoch += 1;
         localConflict = {
           local: restaurants,
           remote: latest.restaurants,
@@ -170,6 +175,7 @@
       if (pendingLocalSave === nextRestaurants) pendingLocalSave = null;
       showStorageMessage("Family list saved and shared with everyone using this link.", "success");
     }).catch((error) => {
+      if (operationEpoch !== sharedSaveEpoch) return;
       showStorageMessage(
         `${error.message} Your changes are still on this page but haven't been shared.`,
         "error",
@@ -313,6 +319,7 @@
 
   function useFamilyVersion() {
     if (!localConflict) return;
+    sharedSaveEpoch += 1;
     restaurants = localConflict.remote;
     localConflict = null;
     pendingLocalSave = null;
@@ -323,6 +330,7 @@
   function keepMyVersion() {
     if (!localConflict) return;
     const localVersion = localConflict.local;
+    sharedSaveEpoch += 1;
     localConflict = null;
     pendingLocalSave = null;
     restaurants = localVersion;
@@ -341,7 +349,7 @@
   }
 
   async function copyFamilyLink() {
-    const url = sharedStore.makeShareUrl(shareId);
+    const url = sharedStore.makeShareUrl(shareId, shareToken);
     try {
       await navigator.clipboard.writeText(url);
       showStorageMessage("Private family link copied. Anyone with this link can view and edit the list.", "success");
@@ -353,21 +361,24 @@
 
   async function createFamilyList() {
     if (!sharedStore.isConfigured()) {
-      showStorageMessage("Shared lists need a Supabase project first. Follow SETUP.md to enable family sharing.", "error");
+      showStorageMessage("Shared lists aren't configured yet. Follow SETUP.md to connect the SQLite service.", "error");
       return;
     }
     elements.shareButton.disabled = true;
     try {
-      shareId = sharedStore.createShareId();
-      await sharedStore.createList(shareId, restaurants);
-      sharedRevision = 0;
+      const created = await sharedStore.createList(restaurants);
+      shareId = created.id;
+      shareToken = created.token;
+      restaurants = created.restaurants;
+      sharedRevision = created.revision;
       sharedMode = true;
       sharedReady = true;
-      history.replaceState(null, "", `${location.pathname}${location.search}#family=${encodeURIComponent(shareId)}`);
+      history.replaceState(null, "", sharedStore.makeShareUrl(shareId, shareToken));
       render();
       await copyFamilyLink();
     } catch (error) {
       shareId = null;
+      shareToken = null;
       showStorageMessage(error.message, "error");
     } finally {
       elements.shareButton.disabled = false;
@@ -376,13 +387,13 @@
 
   async function loadFamilyList() {
     if (!sharedStore.isConfigured()) {
-      showStorageMessage("Shared lists aren't configured yet. The family link can't load until the Supabase setup in SETUP.md is complete.", "error");
+      showStorageMessage("Shared lists aren't configured yet. The family link can't load until the SQLite service is configured in SETUP.md.", "error");
       render();
       return;
     }
 
     try {
-      const data = await sharedStore.loadList(shareId);
+      const data = await sharedStore.loadList(shareId, shareToken);
       if (!isFamilyList(data)) {
         throw new Error("This family link is invalid or its list could not be read.");
       }
@@ -405,7 +416,7 @@
     if (!sharedMode || !sharedReady || familyRefreshInProgress || sharedPendingWrites > 0 || pendingLocalSave || localConflict || elements.dialog.open || document.hidden) return;
     familyRefreshInProgress = true;
     try {
-      const latest = await sharedStore.loadList(shareId);
+      const latest = await sharedStore.loadList(shareId, shareToken);
       if (sharedPendingWrites > 0 || pendingLocalSave || localConflict) return;
       if (isFamilyList(latest) && latest.revision > sharedRevision) {
         restaurants = latest.restaurants;
