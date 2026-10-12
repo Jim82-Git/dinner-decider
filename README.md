@@ -8,6 +8,10 @@ After deployment, open [Dinner Decider on GitHub Pages](https://jim82-git.github
 
 Each person's restaurant list is stored in their own browser on their own device. Lists are not shared or synchronized.
 
+## Publish updates
+
+GitHub Actions deploys the site whenever changes are pushed to `main`. In the repository's **Settings → Pages**, set **Build and deployment → Source** to **GitHub Actions**.
+
 ## Run it locally
 
 Open `index.html` in a modern browser. No install, build step, account, or server is required.
