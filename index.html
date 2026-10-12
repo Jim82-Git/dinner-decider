@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f7f5f0">
+    <meta name="description" content="A little less deciding, a little more dining. Pick a restaurant from your own list.">
+    <title>Dinner Decider — What's for dinner?</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <a class="brand" href="./" aria-label="Dinner Decider home">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 32 32" fill="none">
+              <path d="M9 4v8m4-8v8m-8-8v8c0 3 1.8 5 5 5v11m11-24v24m0-24c4 4 5 8 5 12h-5" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <span class="brand-name">dinner<span>decider</span></span>
+        </a>
+        <span class="topbar-note"><span class="privacy-dot"></span> Your list stays on this device</span>
+      </header>
+
+      <main>
+        <section class="intro" aria-labelledby="page-title">
+          <p class="eyebrow"><span class="eyebrow-line"></span> LESS DEBATING, MORE EATING</p>
+          <h1 id="page-title">The hardest part<br>is <span>dinner.</span></h1>
+          <p class="intro-copy">Keep your favorite spots in one place. When “anything sounds good” turns into “nothing sounds good,” let fate pick.</p>
+        </section>
+
+        <div id="storage-message" class="storage-message" role="status" aria-live="polite" hidden></div>
+
+        <section class="dashboard" aria-label="Restaurant picker">
+          <section class="picker-card" aria-labelledby="picker-heading">
+            <div class="picker-card-top">
+              <span class="round-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M12 3v2m0 14v2M3 12h2m14 0h2M5.64 5.64l1.42 1.42m9.88 9.88 1.42 1.42m0-12.72-1.42 1.42m-9.88 9.88-1.42 1.42" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+                  <circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.7"/>
+                </svg>
+              </span>
+              <span class="card-kicker">TONIGHT'S PLAN</span>
+            </div>
+            <div id="pick-result" class="pick-result" aria-live="polite" aria-atomic="true">
+              <h2 id="picker-heading">A good meal<br>is <em>calling.</em></h2>
+              <p>Add the places you love. We’ll take it from here.</p>
+            </div>
+            <div class="picker-actions">
+              <button class="pick-button" id="pick-button" type="button" disabled>
+                <span>Pick for me</span>
+                <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 10h12m-5-5 5 5-5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+              <p class="pick-caption" id="pick-caption">Add a restaurant to get started</p>
+            </div>
+            <span class="card-spark spark-one" aria-hidden="true">✳</span>
+            <span class="card-spark spark-two" aria-hidden="true">✳</span>
+          </section>
+
+          <section class="list-card" aria-labelledby="list-heading">
+            <div class="list-header">
+              <div>
+                <p class="section-kicker">YOUR SHORTLIST</p>
+                <h2 id="list-heading">Restaurants <span id="restaurant-total" class="total-count">0</span></h2>
+              </div>
+              <button class="add-button" id="add-button" type="button">
+                <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 4v12m6-6H4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                <span>Add place</span>
+              </button>
+            </div>
+
+            <div class="list-tools">
+              <p id="eligible-count" class="eligible-count">0 included</p>
+              <div class="bulk-actions" aria-label="List actions">
+                <button id="include-all-button" type="button" disabled>Include all</button>
+                <span aria-hidden="true">·</span>
+                <button id="exclude-all-button" type="button" disabled>Exclude all</button>
+                <span class="tool-divider" aria-hidden="true"></span>
+                <button id="clear-all-button" class="clear-button" type="button" disabled>Clear</button>
+              </div>
+            </div>
+
+            <ul id="restaurant-list" class="restaurant-list" aria-label="Your restaurants"></ul>
+            <div id="empty-state" class="empty-state">
+              <span class="empty-illustration" aria-hidden="true">♨</span>
+              <p class="empty-title">Your table is waiting.</p>
+              <p class="empty-copy">Add a favorite restaurant and let the dinner plans make themselves.</p>
+              <button class="empty-add-button" id="empty-add-button" type="button">Add your first place <span aria-hidden="true">↗</span></button>
+            </div>
+            <p class="list-footnote"><span aria-hidden="true">✳</span> Picks are random. Opening hours not included.</p>
+          </section>
+        </section>
+      </main>
+
+      <footer class="page-footer">
+        <span>Made for hungry indecisive people.</span>
+        <span>Nothing leaves this browser.</span>
+      </footer>
+    </div>
+
+    <dialog id="restaurant-dialog" class="restaurant-dialog" aria-labelledby="dialog-title">
+      <form id="restaurant-form" novalidate>
+        <div class="dialog-header">
+          <div>
+            <p class="section-kicker">MAKE IT A REGULAR</p>
+            <h2 id="dialog-title">Add a place</h2>
+          </div>
+          <button class="dialog-close" id="dialog-close" type="button" aria-label="Close dialog">×</button>
+        </div>
+        <label for="restaurant-name">Restaurant name <span aria-hidden="true">*</span></label>
+        <input id="restaurant-name" name="name" type="text" maxlength="100" autocomplete="off" placeholder="e.g. Little Olive" required aria-describedby="name-error">
+        <p id="name-error" class="field-error" role="alert"></p>
+        <label for="restaurant-note">A little note <span class="optional-label">OPTIONAL</span></label>
+        <textarea id="restaurant-note" name="note" maxlength="500" rows="3" placeholder="Cuisine, neighborhood, or your usual order" aria-describedby="note-error"></textarea>
+        <p id="note-error" class="field-error" role="alert"></p>
+        <p id="duplicate-message" class="duplicate-message" role="status" hidden>
+          That place is already on your list.
+          <button id="keep-existing-button" class="keep-existing-button" type="button">Keep the existing one</button>
+        </p>
+        <div class="dialog-actions">
+          <button class="cancel-button" id="dialog-cancel" type="button">Cancel</button>
+          <button class="save-button" id="save-button" type="submit">Add to my list</button>
+        </div>
+      </form>
+    </dialog>
+  </body>
+</html>
