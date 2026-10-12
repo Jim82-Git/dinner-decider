@@ -25,7 +25,8 @@ Dinner Decider helps an individual or group overcome decision fatigue by choosin
 
 - A responsive web application for modern desktop and mobile browsers.
 - No account or sign-in is required.
-- Restaurant data is stored in the browser on the device where it was entered.
+- Without a family invitation link, restaurant data is stored in the browser on the device where it was entered.
+- A user may create a private family invitation link backed by a configured Supabase project. Anyone with that link can use the same shared list from another device.
 - A restaurant needs only a name; additional details are optional.
 - The app selects uniformly at random from eligible restaurants.
 - Users can add, edit, remove, and temporarily exclude restaurants from a draw.
@@ -34,7 +35,7 @@ Dinner Decider helps an individual or group overcome decision fatigue by choosin
 
 - Restaurant search, map integrations, opening-hours checks, reviews, or live availability.
 - Location-aware suggestions or automatic restaurant imports.
-- Shared lists, accounts, cross-device synchronization, and collaboration.
+- User accounts, role-based access, and collaboration beyond one shared family list.
 - Ordering, reservations, payments, or restaurant contact.
 - Recommendation ranking, weighted picks, or AI-generated suggestions.
 
@@ -122,6 +123,12 @@ Dinner Decider helps an individual or group overcome decision fatigue by choosin
 
 - Save the list and exclusion state in browser storage on the current device.
 - Restore saved data when the app is reopened in the same browser profile.
+- When opened from a private family invitation link, load and save the shared list in the configured remote database instead of the local list.
+- Allow the owner to create a shared family list from the current local list and copy an invitation link.
+- Keep the invitation token in the URL fragment and send it to the data service in a request header; never put it in a server request URL.
+- Check for remote list updates while a shared list is open and apply newer saved revisions.
+- Detect concurrent changes and ask users to choose between the latest family version and their pending version; do not silently overwrite a newer list.
+- Show a clear connection or save error if the shared service is unavailable.
 - Show a clear error if data cannot be saved; do not imply that unsaved changes are persistent.
 - Provide a “Clear all restaurants” action with explicit confirmation.
 - Clearing data removes all restaurant entries and returns the app to its empty state.
@@ -208,9 +215,12 @@ The persisted list should include a schema/version marker so future releases can
 
 ## 10. Privacy and security
 
-- The MVP does not require personally identifying information or an account.
-- Restaurant data stays in browser storage on the user’s device; the app must not transmit it to a server.
-- Explain that clearing browser/site data can remove the saved list and that lists do not synchronize between devices.
+- The app does not require personally identifying information or an account.
+- A local list stays in browser storage on the user’s device. A family list is sent to the user's configured Supabase project.
+- Anyone with a family invitation link can read and modify that shared list; the UI and setup instructions must say so.
+- Never include a Supabase service-role key in the client. Restrict anonymous access to a list by its secret link token using row-level security.
+- Keep the invitation token in the URL fragment, which is not sent as part of the page request, and do not expose it in API query strings.
+- Explain that clearing browser/site data can remove a local list and that local lists do not synchronize between devices.
 - Render restaurant names and notes as text, not executable markup.
 - Do not include analytics or third-party data collection in the MVP unless separately disclosed and approved.
 
@@ -238,15 +248,17 @@ The persisted list should include a schema/version marker so future releases can
 10. A draw with one eligible restaurant returns that restaurant.
 11. Editing a restaurant preserves its included/excluded state.
 12. Removing a restaurant updates the list and count after the user confirms or can undo.
-13. Saved entries and inclusion states survive a normal reload in the same browser profile.
-14. A storage failure is surfaced to the user instead of being reported as a successful save.
-15. The main flow (add, include/exclude, draw, edit, remove) works with keyboard-only input and assistive-technology labels.
-16. The application remains usable at mobile widths and with browser zoom.
+13. Saved local entries and inclusion states survive a normal reload in the same browser profile.
+14. A configured private family link opens the same restaurant list on another device and saves changes to the shared database.
+15. A concurrent update is detected and resolved with an explicit choice, not a silent overwrite.
+16. A local or shared storage failure is surfaced to the user instead of being reported as a successful save.
+17. The main flow (add, include/exclude, draw, edit, remove) works with keyboard-only input and assistive-technology labels.
+18. The application remains usable at mobile widths and with browser zoom.
 
 ## 13. Future considerations (not MVP commitments)
 
 - Named lists for different occasions or groups.
-- Shareable or synchronized lists with accounts.
+- Multiple named shared lists and account-based access.
 - Optional cuisine, price range, distance, tags, and dietary filters.
 - Recent-pick history and controls to avoid immediate repeats.
 - Import/export and backup of the restaurant list.

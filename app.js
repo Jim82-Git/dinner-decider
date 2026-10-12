@@ -3,9 +3,13 @@
   const SCHEMA_VERSION = 1;
   const MAX_NAME_LENGTH = 100;
   const MAX_NOTE_LENGTH = 500;
+  const sharedStore = window.DinnerDeciderSharedStore;
 
   const elements = {
     storageMessage: document.querySelector("#storage-message"),
+    topbarNote: document.querySelector("#topbar-note"),
+    shareButton: document.querySelector("#share-button"),
+    privacyNote: document.querySelector("#privacy-note"),
     pickResult: document.querySelector("#pick-result"),
     pickerHeading: document.querySelector("#picker-heading"),
     pickButton: document.querySelector("#pick-button"),
@@ -36,6 +40,15 @@
   let restaurants = [];
   let editingId = null;
   let lastPickId = null;
+  let shareId = sharedStore.readShareId();
+  let sharedMode = Boolean(shareId);
+  let sharedReady = false;
+  let sharedRevision = 0;
+  let sharedSaveQueue = Promise.resolve();
+  let localConflict = null;
+  let pendingLocalSave = null;
+  let sharedPendingWrites = 0;
+  let familyRefreshInProgress = false;
 
   function isRestaurant(value) {
     return value !== null
@@ -52,8 +65,28 @@
       && typeof value.updatedAt === "string";
   }
 
-  function showStorageMessage(message, kind = "warning") {
-    elements.storageMessage.textContent = message;
+  function isFamilyList(value) {
+    return value !== null
+      && typeof value === "object"
+      && Array.isArray(value.restaurants)
+      && value.restaurants.every(isRestaurant)
+      && Number.isSafeInteger(value.revision)
+      && value.revision >= 0;
+  }
+
+  function showStorageMessage(message, kind = "warning", actions = []) {
+    const text = document.createElement("span");
+    text.textContent = message;
+    const content = [text];
+    for (const action of actions) {
+      const button = document.createElement("button");
+      button.className = "message-action";
+      button.type = "button";
+      button.textContent = action.label;
+      button.addEventListener("click", action.onClick);
+      content.push(button);
+    }
+    elements.storageMessage.replaceChildren(...content);
     elements.storageMessage.dataset.kind = kind;
     elements.storageMessage.hidden = false;
   }
@@ -90,7 +123,7 @@
     }
   }
 
-  function saveRestaurants(nextRestaurants) {
+  function saveLocalRestaurants(nextRestaurants) {
     restaurants = nextRestaurants;
     render();
     try {
@@ -104,6 +137,58 @@
       showStorageMessage("Could not save to this device. Your changes are available until you close this page, but may not persist.", "error");
       return false;
     }
+  }
+
+  function persistSharedRestaurants(nextRestaurants) {
+    pendingLocalSave = nextRestaurants;
+    sharedPendingWrites += 1;
+    render();
+    sharedSaveQueue = sharedSaveQueue.then(async () => {
+      if (localConflict || !sharedReady) return;
+      const result = await sharedStore.saveList(shareId, nextRestaurants, sharedRevision);
+      if (!result.saved) {
+        const latest = await sharedStore.loadList(shareId);
+        if (!isFamilyList(latest)) {
+          throw new Error("The family list could not be reloaded after a simultaneous update.");
+        }
+        localConflict = {
+          local: restaurants,
+          remote: latest.restaurants,
+        };
+        sharedRevision = latest.revision;
+        showStorageMessage(
+          "A family member changed the list at the same time. Choose which version to keep.",
+          "error",
+          [
+            { label: "Use family version", onClick: useFamilyVersion },
+            { label: "Keep my version", onClick: keepMyVersion },
+          ],
+        );
+        return;
+      }
+      sharedRevision = result.revision;
+      if (pendingLocalSave === nextRestaurants) pendingLocalSave = null;
+      showStorageMessage("Family list saved and shared with everyone using this link.", "success");
+    }).catch((error) => {
+      showStorageMessage(
+        `${error.message} Your changes are still on this page but haven't been shared.`,
+        "error",
+        [{ label: "Retry sync", onClick: () => persistSharedRestaurants(restaurants) }],
+      );
+    }).finally(() => {
+      sharedPendingWrites = Math.max(0, sharedPendingWrites - 1);
+      render();
+    });
+  }
+
+  function saveRestaurants(nextRestaurants) {
+    if (sharedMode) {
+      restaurants = nextRestaurants;
+      render();
+      persistSharedRestaurants(nextRestaurants);
+      return true;
+    }
+    return saveLocalRestaurants(nextRestaurants);
   }
 
   function createId() {
@@ -138,6 +223,7 @@
     toggle.className = "include-control";
     toggle.setAttribute("aria-pressed", String(restaurant.included));
     toggle.setAttribute("aria-label", `${restaurant.included ? "Exclude" : "Include"} ${restaurant.name} ${restaurant.included ? "from" : "in"} draws`);
+    toggle.disabled = sharedMode && (!sharedReady || Boolean(localConflict));
     if (restaurant.included) toggle.append(createSvgCheck());
     toggle.addEventListener("click", () => {
       saveRestaurants(restaurants.map((item) => item.id === restaurant.id
@@ -170,6 +256,7 @@
     edit.className = "row-action";
     edit.textContent = "Edit";
     edit.setAttribute("aria-label", `Edit ${restaurant.name}`);
+    edit.disabled = sharedMode && (!sharedReady || Boolean(localConflict));
     edit.addEventListener("click", () => openDialog(restaurant));
 
     const remove = document.createElement("button");
@@ -177,6 +264,7 @@
     remove.className = "row-action remove-action";
     remove.textContent = "Remove";
     remove.setAttribute("aria-label", `Remove ${restaurant.name}`);
+    remove.disabled = sharedMode && (!sharedReady || Boolean(localConflict));
     remove.addEventListener("click", () => {
       if (!window.confirm(`Remove ${restaurant.name} from your list?`)) return;
       saveRestaurants(restaurants.filter((item) => item.id !== restaurant.id));
@@ -190,6 +278,7 @@
 
   function render() {
     const eligibleCount = restaurants.filter((restaurant) => restaurant.included).length;
+    const locked = sharedMode && (!sharedReady || Boolean(localConflict));
     elements.total.textContent = String(restaurants.length);
     elements.eligible.textContent = `${eligibleCount} included`;
     elements.pickButton.disabled = eligibleCount === 0;
@@ -202,6 +291,133 @@
     elements.includeAll.disabled = restaurants.length === 0 || restaurants.every((restaurant) => restaurant.included);
     elements.excludeAll.disabled = restaurants.length === 0 || restaurants.every((restaurant) => !restaurant.included);
     elements.clearAll.disabled = restaurants.length === 0;
+    elements.addButton.disabled = locked;
+    elements.emptyAddButton.disabled = locked;
+    elements.includeAll.disabled ||= locked;
+    elements.excludeAll.disabled ||= locked;
+    elements.clearAll.disabled ||= locked;
+    elements.shareButton.querySelector("span").textContent = sharedMode ? "Copy family link" : "Share family list";
+    elements.shareButton.setAttribute("aria-label", sharedMode ? "Copy private family list link" : "Create a private family list link");
+    setModeLabel(sharedMode ? (sharedReady ? "Shared family list" : "Connecting to family list") : "Your list stays on this device");
+    elements.privacyNote.textContent = sharedMode
+      ? "Shared with family through a private link."
+      : "Your list stays in this browser.";
+  }
+
+  function setModeLabel(message) {
+    const dot = document.createElement("span");
+    dot.className = "privacy-dot";
+    dot.setAttribute("aria-hidden", "true");
+    elements.topbarNote.replaceChildren(dot, document.createTextNode(message));
+  }
+
+  function useFamilyVersion() {
+    if (!localConflict) return;
+    restaurants = localConflict.remote;
+    localConflict = null;
+    pendingLocalSave = null;
+    render();
+    showStorageMessage("Showing the latest family list.", "success");
+  }
+
+  function keepMyVersion() {
+    if (!localConflict) return;
+    const localVersion = localConflict.local;
+    localConflict = null;
+    pendingLocalSave = null;
+    restaurants = localVersion;
+    render();
+    persistSharedRestaurants(localVersion);
+  }
+
+  function appendInviteLink(url) {
+    const link = document.createElement("a");
+    link.className = "invite-link";
+    link.href = url;
+    link.textContent = url;
+    link.target = "_blank";
+    link.rel = "noreferrer";
+    elements.storageMessage.append(document.createElement("br"), link);
+  }
+
+  async function copyFamilyLink() {
+    const url = sharedStore.makeShareUrl(shareId);
+    try {
+      await navigator.clipboard.writeText(url);
+      showStorageMessage("Private family link copied. Anyone with this link can view and edit the list.", "success");
+    } catch {
+      showStorageMessage("Copy wasn't available. Use this private link to invite your family:", "warning");
+    }
+    appendInviteLink(url);
+  }
+
+  async function createFamilyList() {
+    if (!sharedStore.isConfigured()) {
+      showStorageMessage("Shared lists need a Supabase project first. Follow SETUP.md to enable family sharing.", "error");
+      return;
+    }
+    elements.shareButton.disabled = true;
+    try {
+      shareId = sharedStore.createShareId();
+      await sharedStore.createList(shareId, restaurants);
+      sharedRevision = 0;
+      sharedMode = true;
+      sharedReady = true;
+      history.replaceState(null, "", `${location.pathname}${location.search}#family=${encodeURIComponent(shareId)}`);
+      render();
+      await copyFamilyLink();
+    } catch (error) {
+      shareId = null;
+      showStorageMessage(error.message, "error");
+    } finally {
+      elements.shareButton.disabled = false;
+    }
+  }
+
+  async function loadFamilyList() {
+    if (!sharedStore.isConfigured()) {
+      showStorageMessage("Shared lists aren't configured yet. The family link can't load until the Supabase setup in SETUP.md is complete.", "error");
+      render();
+      return;
+    }
+
+    try {
+      const data = await sharedStore.loadList(shareId);
+      if (!isFamilyList(data)) {
+        throw new Error("This family link is invalid or its list could not be read.");
+      }
+      if (data.revision !== sharedRevision || !sharedReady) {
+        restaurants = data.restaurants;
+        sharedRevision = data.revision;
+        render();
+      }
+      sharedReady = true;
+      showStorageMessage("Family list is up to date and shared with everyone using this link.", "success");
+      render();
+    } catch (error) {
+      sharedReady = false;
+      showStorageMessage(error.message, "error");
+      render();
+    }
+  }
+
+  async function checkForFamilyUpdates() {
+    if (!sharedMode || !sharedReady || familyRefreshInProgress || sharedPendingWrites > 0 || pendingLocalSave || localConflict || elements.dialog.open || document.hidden) return;
+    familyRefreshInProgress = true;
+    try {
+      const latest = await sharedStore.loadList(shareId);
+      if (sharedPendingWrites > 0 || pendingLocalSave || localConflict) return;
+      if (isFamilyList(latest) && latest.revision > sharedRevision) {
+        restaurants = latest.restaurants;
+        sharedRevision = latest.revision;
+        render();
+        showStorageMessage("Family list updated with the latest changes.", "success");
+      }
+    } catch {
+      showStorageMessage("Couldn't check for family updates. Showing the last saved list.", "warning");
+    } finally {
+      familyRefreshInProgress = false;
+    }
   }
 
   function showDefaultResult() {
@@ -332,6 +548,13 @@
 
   elements.addButton.addEventListener("click", () => openDialog());
   elements.emptyAddButton.addEventListener("click", () => openDialog());
+  elements.shareButton.addEventListener("click", () => {
+    if (sharedMode) {
+      copyFamilyLink();
+    } else {
+      createFamilyList();
+    }
+  });
   elements.pickButton.addEventListener("click", pickRestaurant);
   elements.includeAll.addEventListener("click", () => {
     saveRestaurants(restaurants.map((restaurant) => ({ ...restaurant, included: true, updatedAt: new Date().toISOString() })));
@@ -360,6 +583,18 @@
     }
   });
 
-  restaurants = loadRestaurants();
-  render();
+  if (sharedMode) {
+    elements.shareButton.querySelector("span").textContent = "Copy family link";
+    elements.topbarNote.lastChild.textContent = "Shared family list";
+    render();
+    loadFamilyList();
+    window.setInterval(checkForFamilyUpdates, 12000);
+  } else if (window.location.hash.startsWith("#family=")) {
+    showStorageMessage("This family link is malformed. Ask the list owner to send a fresh link.", "error");
+    restaurants = [];
+    render();
+  } else {
+    restaurants = loadRestaurants();
+    render();
+  }
 })();

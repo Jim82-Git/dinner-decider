@@ -6,7 +6,7 @@ A lightweight restaurant picker. Add your favorite places, choose which ones are
 
 After deployment, open [Dinner Decider on GitHub Pages](https://jim82-git.github.io/dinner-decider/). You can share that link with your family.
 
-Each person's restaurant list is stored in their own browser on their own device. Lists are not shared or synchronized.
+The main site keeps a separate list in each browser. To store one list for the whole family, configure Supabase and create a private family invitation link; see [SETUP.md](./SETUP.md).
 
 ## Publish updates
 
@@ -16,6 +16,6 @@ GitHub Actions deploys the site whenever changes are pushed to `main`. In the re
 
 Open `index.html` in a modern browser. No install, build step, account, or server is required.
 
-Your restaurant list is stored in browser storage on this device and is never sent to a server.
+Without a family invitation link, your restaurant list is stored only in browser storage on this device.
 
 See [SPEC.md](./SPEC.md) for the complete product requirements and acceptance criteria.

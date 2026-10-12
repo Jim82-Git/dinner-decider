@@ -32,6 +32,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 
 .page-shell { width: min(1080px, calc(100% - 64px)); margin: 0 auto; }
 .topbar { height: 84px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e8e5de; }
+.topbar-actions { display: flex; align-items: center; gap: 14px; }
 .brand { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; }
 .brand-mark { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 11px; background: var(--green); color: #fffefa; }
 .brand-mark svg { width: 23px; height: 23px; }
@@ -39,6 +40,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .brand-name span { color: var(--green); }
 .topbar-note { display: inline-flex; align-items: center; gap: 8px; color: #77776f; font-size: 12px; }
 .privacy-dot { width: 7px; height: 7px; border-radius: 50%; background: #789176; }
+.share-button { display: inline-flex; min-height: 34px; align-items: center; gap: 6px; padding: 0 10px; border: 1px solid #dfe4dc; border-radius: 7px; background: #fffefa; color: var(--green); font-size: 10px; font-weight: 700; cursor: pointer; }
+.share-button:hover:not(:disabled) { background: var(--green-pale); }
+.share-button:disabled { opacity: .6; cursor: wait; }
+.share-button svg { width: 15px; height: 15px; }
 
 .intro { padding: 53px 0 34px; max-width: 610px; }
 .eyebrow, .section-kicker, .card-kicker { margin: 0; color: var(--green); font-size: 10px; font-weight: 700; letter-spacing: 1.7px; }
@@ -113,7 +118,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .list-footnote span { color: var(--orange); }
 
 .storage-message { margin: -15px 0 21px; padding: 11px 14px; border: 1px solid #e7cc98; border-radius: 7px; background: #fff7e7; color: #74572c; font-size: 12px; line-height: 1.5; }
+.storage-message[data-kind="success"] { border-color: #cbd9c9; background: #f0f5ef; color: #3e6148; }
 .storage-message[data-kind="error"] { border-color: #e5c1b7; background: #fff1ed; color: #854737; }
+.message-action { margin-left: 12px; padding: 3px 0; border: 0; background: none; color: inherit; font-size: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.invite-link { display: inline-block; max-width: 100%; overflow-wrap: anywhere; color: inherit; font-size: 11px; }
 .page-footer { display: flex; justify-content: space-between; gap: 12px; margin: 24px 0 30px; color: #a19f97; font-size: 10px; }
 
 .restaurant-dialog { width: min(440px, calc(100% - 32px)); padding: 26px; border: 1px solid #e9e6df; border-radius: 14px; background: var(--white); color: var(--ink); box-shadow: 0 24px 90px #17160f30; }
@@ -156,7 +164,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 
 @media (max-width: 420px) {
   .page-shell { width: calc(100% - 28px); }
-  .topbar-note { font-size: 10px; }
+  .topbar-note { display: none; }
+  .topbar-actions { gap: 0; }
+  .share-button { font-size: 9px; }
   .intro h1 { font-size: 40px; }
   .list-card { padding-right: 15px; padding-left: 15px; }
   .list-tools { align-items: flex-start; }
