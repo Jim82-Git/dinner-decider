@@ -57,25 +57,21 @@ The invitation contains a random secret in the URL fragment. Keep it private. To
 
 The frontend can be served without Python. From the repository root, run:
 
-```sh
-.\serve-local.ps1
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\serve-local.ps1
 ```
 
 Keep that PowerShell window open and visit `http://127.0.0.1:5500/`. Press Ctrl+C in the PowerShell window to stop the site server. The frontend works in local-list mode without the API.
 
 ## Run the shared-list API locally
 
-Python 3.10 or later is required for shared lists. In a second PowerShell window, from the repository root, run:
+Python 3.10 or later is required for shared lists. With Python installed, start the API in a second PowerShell window from the repository root:
 
 ```powershell
-$env:ALLOWED_ORIGINS = "http://127.0.0.1:5500"
-$env:DINNER_DECIDER_DB = ".\data\dinner-decider.sqlite3"
-$env:HOST = "127.0.0.1"
-$env:PORT = "8000"
-python server.py
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\run-api-local.ps1
 ```
 
-To test family sharing locally, set `apiBaseUrl` in `config.js` to `http://localhost:8000` while testing. Restore it to an empty string before publishing the frontend unless you have configured a publicly reachable HTTPS API. The API's allowed origin must exactly match the frontend origin.
+The local page server automatically points the app to this API; the published `config.js` is not changed. The database file is created at `data\dinner-decider.sqlite3` after the first shared list is made. Use DB Browser for SQLite to open that file and inspect the `family_lists` table. Avoid editing the file while the API is running.
 
 Run the API tests with:
 

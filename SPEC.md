@@ -109,13 +109,13 @@ Dinner Decider helps an individual or group overcome decision fatigue by choosin
 ### 5.6 Random selection
 
 - Provide a prominent “Pick a restaurant” action.
-- Select uniformly from the eligible restaurants. Each eligible entry has equal probability for each draw.
+- Select uniformly from the eligible restaurants, excluding the immediately previous pick when at least two restaurants are eligible.
 - Use a standard pseudorandom source provided by the platform; no cryptographic randomness is required.
 - Do not select an excluded entry.
 - If exactly one restaurant is eligible, return it as the pick.
 - Display the selected restaurant’s name prominently. Show its optional note when present.
 - Do not change the list or exclusions as a side effect of a draw.
-- A restaurant may be selected again on a later draw; no-repeat history is not part of the MVP.
+- Do not repeat the immediately previous restaurant when another restaurant is eligible. A restaurant may be selected again after a different pick; longer no-repeat history is not part of the MVP.
 - If a user changes the list while a draw is in progress, the result must come from the eligible list at the moment the draw is performed.
 - The pick should be presented as the result of a completed selection, not as a guarantee that the restaurant is open or available.
 
@@ -246,14 +246,15 @@ The persisted list should include a schema/version marker so future releases can
 8. A draw with at least one eligible restaurant returns exactly one eligible restaurant.
 9. A draw with no eligible restaurants cannot run and explains how to resolve the state.
 10. A draw with one eligible restaurant returns that restaurant.
-11. Editing a restaurant preserves its included/excluded state.
-12. Removing a restaurant updates the list and count after the user confirms or can undo.
-13. Saved local entries and inclusion states survive a normal reload in the same browser profile.
-14. A configured private family link opens the same restaurant list on another device and saves changes to the shared database.
-15. A concurrent update is detected and resolved with an explicit choice, not a silent overwrite.
-16. A local or shared storage failure is surfaced to the user instead of being reported as a successful save.
-17. The main flow (add, include/exclude, draw, edit, remove) works with keyboard-only input and assistive-technology labels.
-18. The application remains usable at mobile widths and with browser zoom.
+11. Repeated draws with at least two eligible restaurants never return the immediately previous pick.
+12. Editing a restaurant preserves its included/excluded state.
+13. Removing a restaurant updates the list and count after the user confirms or can undo.
+14. Saved local entries and inclusion states survive a normal reload in the same browser profile.
+15. A configured private family link opens the same restaurant list on another device and saves changes to the shared database.
+16. A concurrent update is detected and resolved with an explicit choice, not a silent overwrite.
+17. A local or shared storage failure is surfaced to the user instead of being reported as a successful save.
+18. The main flow (add, include/exclude, draw, edit, remove) works with keyboard-only input and assistive-technology labels.
+19. The application remains usable at mobile widths and with browser zoom.
 
 ## 13. Future considerations (not MVP commitments)
 

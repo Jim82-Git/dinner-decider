@@ -31,26 +31,33 @@ try {
         $relativePath = "index.html"
       }
 
-      $filePath = [IO.Path]::GetFullPath([IO.Path]::Combine($root, $relativePath))
-      if (-not $filePath.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
-        $context.Response.StatusCode = 404
-        $context.Response.Close()
-        continue
-      }
-      if (-not (Test-Path -LiteralPath $filePath -PathType Leaf)) {
-        $context.Response.StatusCode = 404
-        $context.Response.Close()
-        continue
-      }
-
-      $extension = [IO.Path]::GetExtension($filePath).ToLowerInvariant()
-      if ($contentTypes.ContainsKey($extension)) {
-        $context.Response.ContentType = $contentTypes[$extension]
+      if ($relativePath -eq "config.js") {
+        $context.Response.ContentType = "text/javascript; charset=utf-8"
+        $bytes = [Text.Encoding]::UTF8.GetBytes(
+          'window.DINNER_DECIDER_CONFIG = Object.freeze({ apiBaseUrl: "http://localhost:8000" });'
+        )
       } else {
-        $context.Response.ContentType = "application/octet-stream"
+        $filePath = [IO.Path]::GetFullPath([IO.Path]::Combine($root, $relativePath))
+        if (-not $filePath.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+          $context.Response.StatusCode = 404
+          $context.Response.Close()
+          continue
+        }
+        if (-not (Test-Path -LiteralPath $filePath -PathType Leaf)) {
+          $context.Response.StatusCode = 404
+          $context.Response.Close()
+          continue
+        }
+
+        $extension = [IO.Path]::GetExtension($filePath).ToLowerInvariant()
+        if ($contentTypes.ContainsKey($extension)) {
+          $context.Response.ContentType = $contentTypes[$extension]
+        } else {
+          $context.Response.ContentType = "application/octet-stream"
+        }
+        $bytes = [IO.File]::ReadAllBytes($filePath)
       }
 
-      $bytes = [IO.File]::ReadAllBytes($filePath)
       $context.Response.ContentLength64 = $bytes.Length
       if ($context.Request.HttpMethod -eq "GET") {
         $context.Response.OutputStream.Write($bytes, 0, $bytes.Length)

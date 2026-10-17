@@ -40,6 +40,7 @@
   let restaurants = [];
   let editingId = null;
   let lastPickId = null;
+  let previousPickId = null;
   const familyCredential = sharedStore.readShareCredential();
   let shareId = familyCredential ? familyCredential.id : null;
   let shareToken = familyCredential ? familyCredential.token : null;
@@ -448,7 +449,11 @@
   function pickRestaurant() {
     const eligible = restaurants.filter((restaurant) => restaurant.included);
     if (eligible.length === 0) return;
-    const chosen = eligible[Math.floor(Math.random() * eligible.length)];
+    const alternatives = eligible.length > 1
+      ? eligible.filter((restaurant) => restaurant.id !== previousPickId)
+      : eligible;
+    const chosen = alternatives[Math.floor(Math.random() * alternatives.length)];
+    previousPickId = chosen.id;
     lastPickId = chosen.id;
 
     const heading = document.createElement("h2");

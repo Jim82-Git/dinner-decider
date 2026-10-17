@@ -7,6 +7,7 @@ import secrets
 import sqlite3
 import time
 import uuid
+from contextlib import contextmanager
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -96,11 +97,15 @@ class Database:
                 """
             )
 
+    @contextmanager
     def connect(self):
         connection = sqlite3.connect(self.path, timeout=10, isolation_level=None)
-        connection.row_factory = sqlite3.Row
-        connection.execute("PRAGMA busy_timeout = 10000")
-        return connection
+        try:
+            connection.row_factory = sqlite3.Row
+            connection.execute("PRAGMA busy_timeout = 10000")
+            yield connection
+        finally:
+            connection.close()
 
     @staticmethod
     def token_hash(token):
